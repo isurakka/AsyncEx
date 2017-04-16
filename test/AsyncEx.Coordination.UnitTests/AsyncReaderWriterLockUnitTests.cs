@@ -36,12 +36,28 @@ namespace UnitTests
         }
 
         [Fact]
+        public void TryWriteLocked_PreventsAnotherWriterLock()
+        {
+            var rwl = new AsyncReaderWriterLock();
+            Assert.NotNull(rwl.TryWriterLock());
+            Assert.Null(rwl.TryWriterLock());
+        }
+
+        [Fact]
         public async Task WriteLocked_PreventsReaderLock()
         {
             var rwl = new AsyncReaderWriterLock();
             await rwl.WriterLockAsync();
             var task = rwl.ReaderLockAsync().AsTask();
             await AsyncAssert.NeverCompletesAsync(task);
+        }
+
+        [Fact]
+        public void TryWriteLocked_PreventsReaderLock()
+        {
+            var rwl = new AsyncReaderWriterLock();
+            Assert.NotNull(rwl.TryWriterLock());
+            Assert.Null(rwl.TryReaderLock());
         }
 
         [Fact]
@@ -72,6 +88,14 @@ namespace UnitTests
             await rwl.ReaderLockAsync();
             var task = rwl.WriterLockAsync().AsTask();
             await AsyncAssert.NeverCompletesAsync(task);
+        }
+
+        [Fact]
+        public void TryReadLocked_PreventsWriterLock()
+        {
+            var rwl = new AsyncReaderWriterLock();
+            Assert.NotNull(rwl.TryReaderLock());
+            Assert.Null(rwl.TryWriterLock());
         }
 
         [Fact]

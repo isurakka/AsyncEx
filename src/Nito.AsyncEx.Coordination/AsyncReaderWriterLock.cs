@@ -127,6 +127,27 @@ namespace Nito.AsyncEx
         }
 
         /// <summary>
+        /// Tries to acquire the lock immidiately. Returns a disposable that releases the lock when disposed.
+        /// </summary>
+        /// <returns>A disposable that releases the lock when disposed. If the lock could not be immiditialy acquired we return null.</returns>
+        private IDisposable TryRequestReaderLockAsync()
+        {
+            lock (_mutex)
+            {
+                // If the lock is available or in read mode and there are no waiting writers, upgradeable readers, or upgrading readers, take it immediately.
+                if (_locksHeld >= 0 && _writerQueue.IsEmpty)
+                {
+                    ++_locksHeld;
+                    return new ReaderKey(this);
+                }
+                else
+                {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
         /// Asynchronously acquires the lock as a reader. Returns a disposable that releases the lock when disposed.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token used to cancel the lock. If this is already set, then this method will attempt to take the lock immediately (succeeding if the lock is currently available).</param>
@@ -165,6 +186,15 @@ namespace Nito.AsyncEx
         }
 
         /// <summary>
+        /// Synchronously acquires the lock as a reader. Returns a disposable that releases the lock when disposed. This method may block the calling thread.
+        /// </summary>
+        /// <returns>A disposable that releases the lock when disposed.</returns>
+        public IDisposable TryReaderLock()
+        {
+            return TryRequestReaderLockAsync();
+        }
+
+        /// <summary>
         /// Asynchronously acquires the lock as a writer. Returns a disposable that releases the lock when disposed.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token used to cancel the lock. If this is already set, then this method will attempt to take the lock immediately (succeeding if the lock is currently available).</param>
@@ -189,6 +219,27 @@ namespace Nito.AsyncEx
 
             ReleaseWaitersWhenCanceled(ret);
             return ret;
+        }
+
+        /// <summary>
+        /// Tries to acquire the lock immidiately. Returns a disposable that releases the lock when disposed.
+        /// </summary>
+        /// <returns>A disposable that releases the lock when disposed. If the lock could not be immiditialy acquired we return null.</returns>
+        private IDisposable TryRequestWriterLockAsync()
+        {
+            lock (_mutex)
+            {
+                // If the lock is available, take it immediately.
+                if (_locksHeld == 0)
+                {
+                    _locksHeld = -1;
+                    return new WriterKey(this);
+                }
+                else
+                {
+                    return null;
+                }
+            }
         }
 
         /// <summary>
@@ -227,6 +278,15 @@ namespace Nito.AsyncEx
         public IDisposable WriterLock()
         {
             return WriterLock(CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Asynchronously acquires the lock as a writer. Returns a disposable that releases the lock when disposed. This method may block the calling thread.
+        /// </summary>
+        /// <returns>A disposable that releases the lock when disposed.</returns>
+        public IDisposable TryWriterLock()
+        {
+            return TryRequestWriterLockAsync();
         }
 
         /// <summary>
